@@ -8,6 +8,8 @@
 <style>
     .google-search {
   pointer-events: none;
+  position: relative;
+  z-index: 10;
 }
 .google-search input,
 .google-search button {
@@ -16,10 +18,10 @@
 
     .google-search {
   position: absolute;
-  top: 40%;
+  top: 45%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: 900px;
+  width: 700px;
   max-width: 90%;
   display: flex;
   flex-direction: column;
@@ -30,7 +32,7 @@
 }
 
 .google-search .logo {
-  font-size: 120px; /* 大きく */
+  font-size: 90px;
   font-weight: bold;
   letter-spacing: -8px;
   color: #f0f0f0; /* 変更: 単色で薄い灰色 */
@@ -42,17 +44,18 @@
   width: 100%;
   display: flex;
   align-items: center;
-  padding: 16px 24px;
+  padding: 12px 24px;
   border-radius: 36px;
   background: rgba(255,255,255,1); /* 半透明のみ */
   box-shadow: inset 0 1px 3px rgba(0,0,0,0.2);
 }
 
+
 .google-search .search-input input {
   flex: 1;
   border: none;
   outline: none;
-  font-size: 28px; /* 大きめ */
+  font-size: 18px; /* フォントサイズ */
   background: transparent;
   color: #333;
 }
@@ -62,8 +65,8 @@
 }
 
 .plus-button {
-  width: 70px;
-  height: 70px;
+  width: 50px;
+  height: 50px;
   border-radius: 50%;
   background: rgba(200,200,200,1);
   color: #333;
@@ -111,6 +114,33 @@
   .ren{color:#6cf}
   .tspin{color:#ff7eb6}
   .gover{color:#f55;font-weight:700}
+
+    .zoom-buttons {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  display: flex;
+  gap: 10px;
+  z-index: 999;
+}
+
+.zoom-buttons button {
+  width: 30px;
+  height: 30px;
+  border: none;
+  border-radius: 50%;
+  font-size: 18px;
+  background: rgba(255,255,255,0.8);
+  color: #333;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+  cursor: pointer;
+  transition: transform 0.2s, background 0.2s;
+}
+
+.zoom-buttons button:hover {
+  background: rgba(255,255,255,1);
+  transform: scale(1.1);
+}
 </style>
 </head>
 <body>
@@ -123,37 +153,45 @@
       <div class="plus-button">＋</div>
   </div>
 </div>
-<div class="wrap">
+
+<div class="zoom-buttons">
+  <button id="zoomIn">＋</button>
+  <button id="zoomOut">－</button>
+</div>
+
+<div class="zoom-wrapper" id="zoomWrapper">
+    <div class="wrap">
   <!-- 左に Hold 専用のボックス -->
-  <div class="side hold-side">
-    <div class="box">
-      <div class="row"><div>Hold</div></div>
-      <canvas id="hold" width="96" height="96"></canvas>
-    </div>
-  </div>
+        <div class="side hold-side">
+            <div class="box">
+                <div class="row"><div>Hold</div></div>
+            <canvas id="hold" width="96" height="96"></canvas>
+             </div>
+         </div>
 
   <!-- 中央：ゲーム盤 -->
-  <canvas id="game" width="360" height="720" tabindex="0"></canvas>
+    <canvas id="game" width="360" height="720" tabindex="0"></canvas>
 
   <!-- 右に Next やステータス -->
-  <div class="side">
-    <div class="box">
-      <div class="row"><div>Next</div></div>
-      <div class="grid" id="nextGrid"></div>
-    </div>
-    <div class="box stat" id="stats"></div>
-    <div class="box hint">
-      操作: <span class="kbd">←</span><span class="kbd">→</span> 移動 /
-      <span class="kbd">↑</span> 右回転 /
-      <span class="kbd">Z</span> 左回転 /
-      <span class="kbd">C</span> ホールド /
-      <span class="kbd">Space</span> ハード /
-      <span class="kbd">↓</span> ソフト
-      <div style="margin-top:6px;font-size:11px;color:#999">
+    <div class="side">
+        <div class="box">
+            <div class="row"><div>Next</div></div>
+            <div class="grid" id="nextGrid"></div>
+        </div>
+        <div class="box stat" id="stats"></div>
+        <div class="box hint">
+            操作: <span class="kbd">←</span><span class="kbd">→</span> 移動 /
+            <span class="kbd">↑</span> 右回転 /
+             <span class="kbd">Z</span> 左回転 /
+             <span class="kbd">C</span> ホールド /
+             <span class="kbd">Space</span> ハード /
+             <span class="kbd">↓</span> ソフト
+             <div style="margin-top:6px;font-size:11px;color:#999">
         Undo: <span class="kbd">Ctrl/Cmd + Z</span>
       </div>
     </div>
   </div>
+</div>
 </div>
 
 
@@ -166,7 +204,7 @@ const CELL = 36;            // 盤面1マスのピクセル（360x720）
 const GRAVITY_FPS = 60;     // タイマー基準
 const GRAVITY = 1/60;       // 1G=1/60 per frame (調整可)
 const SOFT_DROP_FACTOR = 30;// ソフトドロップ速度倍
-const LOCK_DELAY_MS = 140;  // ロック猶予
+const LOCK_DELAY_MS = 180;  // ロック猶予
 const DAS_MS = 100;         // DAS
 const ARR_MS = 0;           // ARR
 const ARE_MS = 0;           // 次湧き時間
@@ -1040,8 +1078,32 @@ input.addEventListener('keydown', e => {
   }
 });
 
-// canvasをクリックするとゲームにフォーカスが行く
+// canvasをクリックするとゲームにフォーカスが行く（Ctrl+Z をゲームで動かすとき便利）
 canvas.addEventListener('click', ()=> canvas.focus());
+
+let zoomLevel = 1;
+const zoomWrapper = document.getElementById("zoomWrapper");
+const zoomStep = 0.1;
+const minZoom = 0.6;
+const maxZoom = 2.0;
+
+function applyZoom() {
+  zoomWrapper.style.transform = `scale(${zoomLevel})`;
+  zoomWrapper.style.transformOrigin = "top center";
+  zoomWrapper.style.transition = "transform 0.2s ease";
+}
+
+document.getElementById("zoomIn").addEventListener("click", () => {
+  zoomLevel = Math.min(maxZoom, zoomLevel + zoomStep);
+  applyZoom();
+});
+
+document.getElementById("zoomOut").addEventListener("click", () => {
+  zoomLevel = Math.max(minZoom, zoomLevel - zoomStep);
+  applyZoom();
+});
+
+applyZoom();
 
 </script>
 </body>
